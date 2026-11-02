@@ -585,6 +585,14 @@ class OpeningLogoDoc(_Strict):
     alt: Label
 
 
+class PartialCaptureDoc(_Strict):
+    """Retomada opt-in; omissão preserva formulários existentes."""
+
+    contact_permission_field: Name
+    contact_permission_value: str = Field(min_length=1, max_length=200)
+    ttl_hours: int = Field(default=72, ge=1, le=168)
+
+
 class FormDocument(_Strict):
     """A definição de um formulário: as etapas e as perguntas, a identidade e o consentimento da lead,
     a pontuação, as instruções e o prompt do LLM, o modelo do plano, o HTML e o CSS do PDF, a prévia
@@ -601,6 +609,7 @@ class FormDocument(_Strict):
     steps: list[StepDoc] = Field(min_length=1)
     identity: IdentityDoc
     consent: ConsentDoc
+    partial_capture: PartialCaptureDoc | None = None
     scoring: ScoringDoc | None = None
     generation: Literal["pdf", "none"] = "pdf"
     release: ReleaseDoc | None = None

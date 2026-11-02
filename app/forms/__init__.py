@@ -269,6 +269,7 @@ class FormSpec:
     generation: Literal["pdf", "none"] = "pdf"
     completion: Completion = Completion()
     release_mode: Literal["automatic", "manual"] = "automatic"
+    partial_capture: Mapping[str, Any] | None = None
     # As condições das perguntas e das opções: o avaliador que diz o que aparece para certas
     # respostas. O modelo das respostas já as aplica; quem lê o envio ou grava as respostas usa o
     # mesmo resultado (`Conditions.evaluate`).

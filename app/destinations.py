@@ -385,7 +385,16 @@ def save(
     if events is not None and (
         not events
         or len(set(events)) != len(events)
-        or set(events) - {"plano.concluido", "submissao.persistida", "plano.liberado", V2_SELECTION}
+        or set(events)
+        - {
+            "plano.concluido",
+            "submissao.persistida",
+            "plano.liberado",
+            V2_SELECTION,
+            "contato.capturado",
+            "contato.revogado",
+            "formulario.concluido",
+        }
     ):
         raise InvalidEvents(
             "Selecione os eventos aceitos: plano.concluido, plano.liberado e/ou submissao.persistida."
@@ -408,6 +417,13 @@ def save(
     effective_events = (
         events if events is not None else (current.events if current else ["plano.concluido"])
     )
+    partial_events = {"contato.capturado", "formulario.concluido", "contato.revogado"}
+    if partial_events.intersection(effective_events):
+        if form_slug is None or not partial_events.issubset(effective_events):
+            raise InvalidEvents(
+                "Selecione contato capturado, revogado e formulário concluído juntos, no destino do formulário."
+            )
+        require_internal(chosen, receiver="O webhook de captura parcial")
     if V2_SELECTION in effective_events:
         from app.deployment_contract import DeploymentContractError, assert_contract
 

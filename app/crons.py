@@ -76,6 +76,7 @@ class ReconcileReport(BaseModel):
     captures_launched: int = 0
     captures_relaunched: int = 0
     captures_failed: int = 0
+    partial_events_delivered: int = 0
     syncs_launched: int = 0
     errors: int = 0
 
@@ -179,6 +180,9 @@ def reconcile_once(
     )
     report.captures_launched, report.captures_relaunched, report.captures_failed, errors = counts
     report.errors += errors
+    from app.partial_deliveries import dispatch_pending
+
+    report.partial_events_delivered = dispatch_pending(deps)
     return report
 
 

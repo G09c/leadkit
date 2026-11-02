@@ -51,3 +51,5 @@ A atualização e a futura adoção por uma instalação existente seguem o
 Consulte [documentação técnica](app/README.md), [contribuição](CONTRIBUTING.md),
 [segurança](SECURITY.md) e [índice](docs/README.md). Código próprio sob [MIT](LICENSE);
 dependências e fontes conservam suas licenças e avisos próprios.
+
+A [captura parcial e retomada](docs/partial-capture.md) é opt-in por versão e documenta os contratos de API e eventos internos.

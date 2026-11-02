@@ -53,7 +53,7 @@ NOT_FOR_LLM = frozenset(
         "pdf",
         "preview",
     }
-    | {"examples", "scoring", "notices", "completion", "generation", "release"}
+    | {"examples", "scoring", "notices", "completion", "generation", "release", "partial_capture"}
 )
 # O nome de cada parte que vai ao LLM, para a tela dizer o que mudou.
 LLM_PART_NAMES = {

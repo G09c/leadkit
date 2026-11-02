@@ -77,6 +77,7 @@ BATCH = 100
 class RetentionReport(BaseModel):
     requests_deleted: int = 0
     captures_deleted: int = 0
+    partials_deleted: int = 0
     leads_deleted: int = 0
     pdfs_deleted: int = 0
     storage_errors: int = 0
@@ -91,6 +92,9 @@ def purge_expired(deps: Deps, *, now: datetime | None = None) -> RetentionReport
 
     with deps.sessions.begin() as session:
         expire_ciphertexts(session, now=now)
+    from app.partial_capture import purge
+
+    report.partials_deleted = purge(deps, now=now)
     _purge_captures(deps, now, report)
     _purge_requests(deps, now, report)
     if not report.storage_errors:  # storage fora do ar: a próxima execução tenta de novo

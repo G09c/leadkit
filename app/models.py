@@ -1009,3 +1009,45 @@ class JourneyEvent(Base):
         JSONB, nullable=True, deferred=True
     )
     erased_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+
+
+class PartialCapture(Base):
+    """Respostas ainda não submetidas; nenhuma relação com Job ou Lead."""
+
+    __tablename__ = "partial_captures"
+    id: Mapped[uuid.UUID] = _pk()
+    form_slug: Mapped[str] = mapped_column(sa.String(64), index=True)
+    form_version_number: Mapped[int] = mapped_column(sa.Integer)
+    create_key_hash: Mapped[str] = mapped_column(sa.String(64), unique=True)
+    token_hash: Mapped[str] = mapped_column(sa.String(64), unique=True)
+    sealed_token: Mapped[str] = mapped_column(sa.Text)
+    answers: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    consent: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    tracking: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    revision: Mapped[int] = mapped_column(sa.Integer, default=1)
+    step: Mapped[int] = mapped_column(sa.Integer)
+    last_request_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid)
+    last_digest: Mapped[str] = mapped_column(sa.String(64))
+    submission_id: Mapped[uuid.UUID | None] = mapped_column(
+        sa.ForeignKey("submissions.id", ondelete="CASCADE"), unique=True
+    )
+    created_at: Mapped[datetime] = _created_at()
+    expires_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), index=True)
+
+
+class PartialDelivery(Base):
+    """Fato interno fixado com a captura; transporte separado e repetível."""
+
+    __tablename__ = "partial_deliveries"
+    __table_args__ = (sa.UniqueConstraint("partial_id", "event"),)
+    id: Mapped[uuid.UUID] = _pk()
+    partial_id: Mapped[uuid.UUID] = mapped_column(
+        sa.ForeignKey("partial_captures.id", ondelete="CASCADE")
+    )
+    destination_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid)
+    destination_revision: Mapped[int] = mapped_column(sa.Integer)
+    event: Mapped[str] = mapped_column(sa.String(40))
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    status: Mapped[str] = mapped_column(sa.String(16), default="pending")
+    attempts: Mapped[int] = mapped_column(sa.Integer, default=0)
+    next_attempt_at: Mapped[datetime] = _created_at()

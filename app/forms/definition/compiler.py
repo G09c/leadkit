@@ -46,6 +46,33 @@ def _stop_on(problems: list[Problem]) -> None:
 
 def _rule_problems(definition: FormDocument) -> list[Problem]:
     completion_problems = []
+    partial = definition.partial_capture
+    if partial:
+        first = {q.name: q for q in definition.steps[0].questions}
+        consent = definition.consent
+        permission = first.get(partial.contact_permission_field)
+        identities = definition.identity.model_dump().values()
+        if consent.acquisition_method != "checkbox" or consent.position != "first_step":
+            completion_problems.append(
+                Problem("partial_capture", "exige consentimento por caixa na primeira etapa")
+            )
+        if any(name and name not in first for name in identities):
+            completion_problems.append(
+                Problem("partial_capture", "a identidade deve estar na primeira etapa")
+            )
+        if (
+            permission is None
+            or permission.kind != "choice"
+            or permission.show_when is not None
+            or not permission.required
+            or partial.contact_permission_value not in {o.value for o in permission.options}
+        ):
+            completion_problems.append(
+                Problem(
+                    "partial_capture",
+                    "escolha autorização obrigatória e incondicional na primeira etapa",
+                )
+            )
     if definition.completion.mode in ("button", "redirect") and not definition.completion.url:
         completion_problems.append(Problem("completion.url", "informe o endereço HTTPS do destino"))
     if definition.completion.mode in ("result", "confirmation") and definition.completion.url:
@@ -127,6 +154,9 @@ def compile_definition(
             calendar=calendar,
         )
     return FormSpec(
+        partial_capture=definition.partial_capture.model_dump()
+        if definition.partial_capture
+        else None,
         generation=definition.generation,
         slug=definition.slug,
         version=label,

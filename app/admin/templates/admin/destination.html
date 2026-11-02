@@ -64,6 +64,12 @@
     <label><input type="checkbox" name="events" value="plano.concluido"{% if 'plano.concluido' in selected_events %} checked{% endif %}>Planos concluídos (PDF)</label>
     <label><input type="checkbox" name="events" value="plano.liberado"{% if 'plano.liberado' in selected_events %} checked{% endif %}>Liberação individual do plano</label>
     <label><input type="checkbox" name="events" value="submissao.persistida"{% if 'submissao.persistida' in selected_events %} checked{% endif %}>Capturas persistidas (sem PDF)</label>
+    {% if page.form_slug %}
+    <label><input type="checkbox" name="events" value="contato.capturado"{% if 'contato.capturado' in selected_events %} checked{% endif %}>Contato capturado com autorização</label>
+    <label><input type="checkbox" name="events" value="formulario.concluido"{% if 'formulario.concluido' in selected_events %} checked{% endif %}>Conclusão da captura parcial</label>
+    <label><input type="checkbox" name="events" value="contato.revogado"{% if 'contato.revogado' in selected_events %} checked{% endif %}>Revogação do contato durante o preenchimento</label>
+    <p>Selecione os três eventos para um receptor interno. O formulário também precisa habilitar a captura parcial.</p>
+    {% endif %}
     {% if page.form_slug %}<label><input type="checkbox" name="events" value="submissao.persistida.v2"{% if 'submissao.persistida.v2' in selected_events %} checked{% endif %}>Enviar respostas ao concluir o formulário</label><p>Com ou sem PDF, envia as respostas depois de salvar. Escolha finalidade interna e retire a seleção legada de captura. Não envia respostas anteriores.</p>{% endif %}
     {% if errors.get("events") %}<p class="error" id="eventos-erro" role="alert">{{ errors["events"] }}</p>{% endif %}</fieldset>
     {% if needs_confirmation %}

@@ -52,6 +52,9 @@ class FormPost:
     tracking: dict[str, str]
     honeypot: bool
     privacy_supplied: bool = False
+    partial_token: str | None = None
+    partial_revision: int = 0
+    partial_step: int = 0
 
 
 def _texts(form: FormData, name: str) -> list[str]:
@@ -76,6 +79,7 @@ def read_post(screen: Screen, form: FormData, conditions: Conditions | None = No
             values.pop(name, None)
     key = next(iter(_texts(form, "_idem")), "")
     return FormPost(
+        partial_token=next(iter(_texts(form, "_partial_token")), None),
         answers=answers,
         values=values,
         privacy=_texts(form, PRIVACY) == ["1"],

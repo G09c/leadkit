@@ -60,6 +60,7 @@ TRACKING_KEYS = frozenset(
 class SubmissionIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    partial_token: str | None = Field(default=None, max_length=100)
     answers: dict[str, Any]
     consent: ConsentDeclaration
     tracking: dict[str, str] = Field(default_factory=dict)
@@ -201,6 +202,21 @@ def accept_submission(
 
     Reenviar uma chave já gravada devolve o resultado de antes sem passar pelos limites: o replay
     não cria pedido nem conta como envio."""
+    if body.partial_token:
+        from app.partial_capture import accept_final
+
+        return accept_final(
+            session,
+            spec,
+            body,
+            signer=signer,
+            link_ttl=link_ttl,
+            limits=limits,
+            now=now,
+            forms=forms,
+            cipher=cipher,
+            source=source,
+        )
     from app.integration_readiness import configuration_lock
 
     configuration_lock(session, shared=True)

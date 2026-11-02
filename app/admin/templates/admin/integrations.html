@@ -54,7 +54,7 @@
 <p>Tabela {{ row.receiver.table_id }}</p>
 {% endif %}
 <p>Finalidade {{ 'interna' if row.receiver.purpose == 'internal' else 'participante' }} · {{ {'legacy':'origem legada','explicit':'escolha explícita','default':'padrão seguro'}[row.receiver.purpose_origin] }}</p>
-<p>Eventos: {% for event in row.receiver.events %}{{ {'plano.concluido': 'Plano concluído', 'submissao.persistida': 'Respostas salvas', 'submissao.persistida.v2': 'Respostas após salvar', 'plano.liberado': 'Liberação do plano'}[event] }}{% if not loop.last %} · {% endif %}{% endfor %}</p>
+<p>Eventos: {% for event in row.receiver.events %}{{ {'plano.concluido': 'Plano concluído', 'submissao.persistida': 'Respostas salvas', 'submissao.persistida.v2': 'Respostas após salvar', 'plano.liberado': 'Liberação do plano', 'contato.capturado': 'Contato capturado', 'contato.revogado': 'Contato revogado', 'formulario.concluido': 'Conclusão da captura parcial'}[event] }}{% if not loop.last %} · {% endif %}{% endfor %}</p>
 <p>Revisão {{ row.receiver.version }} do receptor {{ 'padrão' if row.receiver.scope_kind == 'default' else row.receiver.form_slug }}</p>
 {% if row.mapping %}
 <p>PDF: {{ 'mapeamento salvo' if row.mapping.pdf_present else 'sem mapeamento' }} · Captura: {{ 'mapeamento salvo' if row.mapping.capture_present else 'sem mapeamento' }}</p>

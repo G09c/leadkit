@@ -117,6 +117,8 @@ class PublicRoute(APIRoute):
         return with_headers
 
 
+from app.partial_capture import PartialUnavailable
+
 router = APIRouter(route_class=PublicRoute)
 logger = logging.getLogger(__name__)
 
@@ -211,6 +213,9 @@ def _form_page(
         consent_error=errors.get(PRIVACY),
         tracking=post.tracking if post else tracking or {},
         idempotency_key=post.idempotency_key if post else str(uuid.uuid4()),
+        partial_token=post.partial_token if post else None,
+        partial_revision=post.partial_revision if post else 0,
+        partial_step=post.partial_step if post else 0,
     )
 
 
@@ -292,7 +297,12 @@ def _prepare_form_submission(
         )
     except ValidationError:  # versão ausente ou adulterada
         return _form_page(request, spec, screen, outdated, banner=CONSENT_UPDATED, status_code=409)
-    body = SubmissionIn(answers=post.answers, consent=consent, tracking=post.tracking)
+    body = SubmissionIn(
+        answers=post.answers,
+        consent=consent,
+        tracking=post.tracking,
+        partial_token=post.partial_token,
+    )
     deps = get_deps()
 
     try:
@@ -343,12 +353,28 @@ def _submit_form(
     post: FormPost | None = None
     try:
         with deps.sessions.begin() as session:
-            found = _screen_form(request, slug, f"web:{raw.get('_idem', '')}", session)
+            if raw.get("_partial_token"):
+                wait = request.app.state.partial_limiter.take(
+                    request.client.host if request.client else "unknown"
+                )
+                if wait:
+                    return Response(status_code=429, headers={"Retry-After": str(wait)})
+                from app.partial_capture import lookup
+
+                partial = lookup(session, slug, str(raw["_partial_token"]), allow_completed=True)
+                historical = deps.forms.get(slug, partial.form_version_number)
+                found = historical, historical.screen
+            else:
+                found = _screen_form(request, slug, f"web:{raw.get('_idem', '')}", session)
             if isinstance(found, Response):
                 return found
             spec, screen = found
             post = read_post(screen, raw, spec.conditions)
+            if post.partial_token:
+                post = replace(post, partial_revision=partial.revision, partial_step=partial.step)
             accepted = _prepare_form_submission(request, spec, screen, post, session)
+    except PartialUnavailable:
+        return _page(request, "unavailable", 404, submitted=False)
     except sa.exc.SQLAlchemyError:
         # Também cobre falha no commit: nenhum recibo ou disparo antecede sua confirmação.
         # Não consulta o banco indisponível de novo nem repete respostas ainda não validadas.
@@ -699,3 +725,53 @@ def capture_completion_page(public_id: str, request: Request) -> Response:
         _grant_capture_access(response, request, receipt, token)
         return response
     return HTMLResponse(render_completion(spec, completion=completion), headers=headers)
+
+
+@router.post("/p/{slug}/retomar")
+async def resume_partial_page(slug: str, request: Request) -> Response:
+    """Troca o fragmento privado pelo formulário histórico, sem redirecionar a capacidade."""
+    from starlette.concurrency import run_in_threadpool
+
+    from app.partial_capture import lookup
+
+    wait = request.app.state.partial_limiter.take(
+        request.client.host if request.client else "unknown"
+    )
+    if wait:
+        return Response(status_code=429, headers={"Retry-After": str(wait)})
+    raw = await request.form()
+    token = raw.get("token")
+    if not isinstance(token, str) or not 1 <= len(token) <= 100:
+        return _page(request, "unavailable", 404, submitted=False)
+
+    def resume():
+        deps = get_deps()
+        with deps.sessions.begin() as session:
+            row = lookup(session, slug, token)
+            spec = deps.forms.get(slug, row.form_version_number)
+            post = FormPost(
+                answers=row.answers,
+                values={
+                    k: [str(v) for v in value] if isinstance(value, list) else [str(value)]
+                    for k, value in row.answers.items()
+                    if value is not None
+                },
+                privacy=True,
+                marketing_email=row.consent.get("marketing_email", False),
+                marketing_whatsapp=row.consent.get("marketing_whatsapp", False),
+                consent_version=spec.consent_text_version,
+                idempotency_key=str(uuid.uuid4()),
+                tracking=row.tracking,
+                honeypot=False,
+                partial_token=token,
+                partial_revision=row.revision,
+                partial_step=row.step,
+            )
+            return _form_page(request, spec, spec.screen, post)
+
+    try:
+        return await run_in_threadpool(resume)
+    except (PartialUnavailable, UnknownForm):
+        return _page(request, "unavailable", 404, submitted=False)
+    except sa.exc.SQLAlchemyError:
+        return _page(request, "submission_unavailable", 503, slug=slug)

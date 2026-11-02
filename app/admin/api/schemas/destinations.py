@@ -57,7 +57,13 @@ class Destination(BaseModel):
 
     events: list[
         Literal[
-            "plano.concluido", "submissao.persistida", "submissao.persistida.v2", "plano.liberado"
+            "plano.concluido",
+            "submissao.persistida",
+            "submissao.persistida.v2",
+            "plano.liberado",
+            "contato.capturado",
+            "contato.revogado",
+            "formulario.concluido",
         ]
     ] = Field(
         default_factory=lambda: ["plano.concluido"],
@@ -276,6 +282,9 @@ class SaveDestinationRequest(ConfirmedInput, VersionedInput):
                 "submissao.persistida",
                 "submissao.persistida.v2",
                 "plano.liberado",
+                "contato.capturado",
+                "contato.revogado",
+                "formulario.concluido",
             ]
         ]
         | None

@@ -49,6 +49,7 @@ from app.intake import (
 from app.integrations import config as integration_config
 from app.internal_links import ParticipantPdfAccess
 from app.models import Artifact, Job
+from app.partial_capture import PartialUnavailable
 from app.pdf_availability import availability_dict, current_pdf
 from app.plan_release import PlanHeld, ReleaseRefused, participant_access
 from app.submission_launch import launch_after_commit, launch_capture_after_commit, stop_launches
@@ -364,6 +365,11 @@ def create_app(
     )
     app.add_middleware(ControlCharacters)  # a mais externa: recusa antes de tudo
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+    from app.admin.api.limits import RateLimiter
+    from app.api.partials import router as partial_router
+
+    app.state.partial_limiter = RateLimiter(30, clock)
+    app.include_router(partial_router)
     app.include_router(web_router)
     app.include_router(images_router)
     admin.install(app, settings, clock=clock)
@@ -452,6 +458,15 @@ def create_app(
                 {"errors": [{"field": "", "message": "JSON inválido"}]}, status_code=422
             )
 
+        if body.partial_token:
+            wait = request.app.state.partial_limiter.take(
+                request.client.host if request.client else "unknown"
+            )
+            if wait:
+                return JSONResponse(
+                    {"code": "rate_limited"}, status_code=429, headers={"Retry-After": str(wait)}
+                )
+
         def _accept() -> Any:
             with deps.sessions.begin() as session:
                 # Conserva a trava da chave da resolução da versão até confirmar o envio.
@@ -487,6 +502,8 @@ def create_app(
             return JSONResponse(
                 {"code": "consent_text_outdated", "current_version": str(exc)}, status_code=409
             )
+        except PartialUnavailable:
+            return JSONResponse({"code": "partial_unavailable"}, status_code=404)
         except IdempotencyConflict:
             return JSONResponse({"code": "idempotency_conflict"}, status_code=409)
         except SubmissionLimitExceeded as exc:

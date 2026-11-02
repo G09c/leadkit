@@ -1860,6 +1860,16 @@
               }
             ]
           },
+          "partial_capture": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialCaptureDoc"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "pdf": {
             "title": "Pdf",
             "type": "null"
@@ -3254,7 +3264,10 @@
                 "plano.concluido",
                 "submissao.persistida",
                 "submissao.persistida.v2",
-                "plano.liberado"
+                "plano.liberado",
+                "contato.capturado",
+                "contato.revogado",
+                "formulario.concluido"
               ],
               "type": "string"
             },
@@ -8623,6 +8636,37 @@
         "title": "OwnRetention",
         "type": "object"
       },
+      "PartialCaptureDoc": {
+        "additionalProperties": false,
+        "description": "Retomada opt-in; omissão preserva formulários existentes.",
+        "properties": {
+          "contact_permission_field": {
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "title": "Contact Permission Field",
+            "type": "string"
+          },
+          "contact_permission_value": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Contact Permission Value",
+            "type": "string"
+          },
+          "ttl_hours": {
+            "default": 72,
+            "maximum": 168.0,
+            "minimum": 1.0,
+            "title": "Ttl Hours",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "contact_permission_field",
+          "contact_permission_value"
+        ],
+        "title": "PartialCaptureDoc",
+        "type": "object"
+      },
       "PatchFormDraftRequest": {
         "additionalProperties": false,
         "description": "Um JSON Patch para o documento do rascunho.",
@@ -8889,6 +8933,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/OpeningLogoDoc"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "partial_capture": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialCaptureDoc"
               },
               {
                 "type": "null"
@@ -11717,7 +11771,10 @@
                 "plano.concluido",
                 "submissao.persistida",
                 "submissao.persistida.v2",
-                "plano.liberado"
+                "plano.liberado",
+                "contato.capturado",
+                "contato.revogado",
+                "formulario.concluido"
               ],
               "type": "string"
             },
@@ -11901,7 +11958,10 @@
                     "plano.concluido",
                     "submissao.persistida",
                     "submissao.persistida.v2",
-                    "plano.liberado"
+                    "plano.liberado",
+                    "contato.capturado",
+                    "contato.revogado",
+                    "formulario.concluido"
                   ],
                   "type": "string"
                 },
@@ -12218,7 +12278,10 @@
                 "plano.concluido",
                 "submissao.persistida",
                 "submissao.persistida.v2",
-                "plano.liberado"
+                "plano.liberado",
+                "contato.capturado",
+                "contato.revogado",
+                "formulario.concluido"
               ],
               "type": "string"
             },

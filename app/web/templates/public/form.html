@@ -30,7 +30,12 @@
       </div>
       {%- endif %}
 
-      <form class="stepform" method="post" action="/p/{{ spec.slug }}" data-steps data-minutes="{{ screen.minutes }}" data-draft-key="rascunho:{{ spec.slug }}:{{ spec.version }}">
+      <form class="stepform" method="post" action="/p/{{ spec.slug }}" data-steps{% if spec.partial_capture %} data-partial-url="/v1/forms/{{ spec.slug }}/partials" data-partial-revision="{{ partial_revision }}" data-start-step="{{ partial_step }}"{% endif %} data-minutes="{{ screen.minutes }}" data-draft-key="rascunho:{{ spec.slug }}:{{ spec.version }}">
+        {% if spec.partial_capture %}
+        <input type="hidden" name="_partial_token" value="{{ partial_token or '' }}">
+        <p role="status" aria-live="polite" data-partial-status>Ao continuar, suas respostas serão salvas por até {{ spec.partial_capture.ttl_hours }} horas.</p>
+        <p data-resume-link-wrap hidden><a data-resume-link>Retomar em outro aparelho</a></p>
+        {% endif %}
         <input type="hidden" name="_idem" value="{{ idempotency_key }}">
         <input type="hidden" name="_consent_version" value="{{ spec.consent_text_version }}">
         {%- for key, value in tracking.items() %}

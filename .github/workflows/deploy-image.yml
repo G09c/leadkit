@@ -496,7 +496,7 @@ jobs:
               from app.migrations.compatibility import validate_database
               from app.migrations.contracts import SIGNATURES
               with deps.sessions() as session:
-                  assert validate_database(session.connection(), SIGNATURES) == "0020_draft_test_commands"
+                  assert validate_database(session.connection(), SIGNATURES) == "0021_partial_capture"
                   assert all(hashlib.sha256(json.dumps(SIGNATURES[revision], sort_keys=True).encode()).hexdigest() == digest for revision, digest in state["signatures"].items())
                   job = session.get_one(Job, UUID(state["history_job"]))
                   deps.signer.verify(state["history_token"], job)
@@ -982,7 +982,7 @@ jobs:
           test -s before-ddl
           test -e ddl-committed-launcher-failed
           cat before-ddl
-          test "$(psql_compat 'select version_num from alembic_version')" = 0020_draft_test_commands
+          test "$(psql_compat 'select version_num from alembic_version')" = 0021_partial_capture
           test "$(psql_compat "select minimum_contract || ':' || phase from deployment_contract where id=1")" = 3:blocked
           for role in api worker; do
             bootstrap_role="$role"
