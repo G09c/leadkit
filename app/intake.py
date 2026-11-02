@@ -194,6 +194,7 @@ def accept_submission(
     forms: FormRegistry | None = None,
     cipher=None,
     source: ConsentSource = "public_api_declaration",
+    partial_capture_row=None,
 ) -> Accepted | CaptureAccepted:
     """Levanta `pydantic.ValidationError` (respostas inválidas, ou autorização de marketing por um
     canal que o formulário não pede), `ConsentTextMismatch`, `IdempotencyConflict`,
@@ -290,6 +291,9 @@ def accept_submission(
                     now=now,
                 )
                 enqueue(session, submission, spec=spec)
+                from app.partial_capture import complete
+
+                complete(session, spec, submission, partial_capture_row, now=now)
                 return CaptureAccepted(
                     submission,
                     receipt,
@@ -312,6 +316,9 @@ def accept_submission(
             from app.capture_deliveries import enqueue
 
             enqueue(session, submission, spec=spec)
+            from app.partial_capture import complete
+
+            complete(session, spec, submission, partial_capture_row, now=now)
     except IntegrityError:
         # Duas requisições iguais ao mesmo tempo: a perdedora devolve o resultado da vencedora.
         existing = _find_submission(session, spec.slug, idempotency_key)

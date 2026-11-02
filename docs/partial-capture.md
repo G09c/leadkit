@@ -35,6 +35,15 @@ Para atualizar, acrescente `token` e a `revision` devolvida pelo último salvame
 A resposta 201 contém `id`, `token`, `revision`, `step`, `version_number`, `expires_at`, respostas,
 consentimento e origem. Replay exato da última operação devolve 200 sem repetir efeitos.
 Outra operação sobre revisão antiga recebe 409; não sobrescreve as respostas silenciosamente.
+Voltar uma etapa conserva respostas posteriores ainda válidas; condições que ocultem uma pergunta
+removem sua resposta. Cada salvamento registra a declaração atual de consentimento, inclusive
+retirada de marketing por e-mail ou WhatsApp, também refletida na retomada HTML.
+
+Mudar identidade, autorização de contato ou declaração de consentimento cria uma captura sucessora
+com outro `id` e `token`, preservando respostas válidas, versão, origem e vencimento original.
+A cliente deve sempre guardar o token/revisão retornados. O token antigo é invalidado na mesma
+transação. Repetir exatamente a operação de sucessão com seu request_id e token originais recupera
+a mesma sucessora enquanto ela permanece disponível; nunca cria uma terceira captura.
 
 `POST /v1/forms/{slug}/partials/resume` recebe somente `token` e devolve o snapshot histórico.
 `POST /p/{slug}/retomar` troca o token pelo HTML da versão respondida. Capacidade ausente,
@@ -88,12 +97,24 @@ Redirecionamentos não são seguidos. O receptor deve deduplicar por `event_id` 
 Na conclusão, `event` é `formulario.concluido`, `submission` contém `id` e `submitted_at`, e
 `resume_url` fica ausente. Quando há geração de PDF, `job` contém `public_id` e `attempt`, sem
 capacidade de acesso; a consulta administrativa existente usa esse `public_id`. A conclusão
-continua elegível após expirar o link, até a retenção da submissão.
+continua elegível após expirar o link, até a retenção da submissão. O envio completo sem token
+(inclusive sem JS ou com uma etapa) também produz esse evento, uma única vez por submissão
+idempotente. Nesse caso `partial.id` é uma correlação técnica criada na conclusão, sem capacidade
+de retomada, e `partial.expires_at` coincide com a conclusão.
 
 A revogação durante um salvamento emite `contato.revogado` uma vez, com o mesmo `partial.id`,
 `submission=null`, `authorized=false` e sem `resume_url`. O receptor deve cancelar lembretes
 mesmo se receber a revogação antes do contato, e não reabrir a autorização por evento atrasado. O consentimento final pode indicar `authorized=false`; o receptor ainda
-deve encerrar lembretes pela correlação. Contato pendente não é enviado depois da conclusão,
+deve encerrar lembretes pela correlação. Na sucessão, a captura antiga emite revogação somente se tinha uma intenção de contato;
+intenções antigas pendentes são canceladas, inclusive retries. Payloads de eventos já tentados
+não são alterados. A sucessora autorizada emite contato com outro `partial.id` e outro `event_id`;
+recusa→autorização sem contato anterior não emite revogação. `occurred_at` do novo contato é a
+criação da sucessora; a revogação usa seu instante próprio. Esses horários não substituem os IDs
+nem exigem ordem de transporte. O receptor conserva o tombstone **da captura revogada**, sem
+reabrir esse ID quando chegar um contato atrasado; não deve interpretar a sucessão como permissão
+para limpar opt-out global, respostas ou atendimento existentes da pessoa.
+
+Contato pendente não é enviado depois da conclusão,
 expiração ou revogação observada na captura. Alterar o receptor bloqueia entregas antigas em vez
 de redirecioná-las. Transporte confirmado não comprova mensagem ou atendimento externo.
 
@@ -108,7 +129,9 @@ anteriores. O guard estrutural conserva inventário PostgreSQL 16 específico da
 O cron de retenção apaga respostas, consentimentos, origem, capacidade cifrada e payloads de
 capturas incompletas expiradas; capturas concluídas acompanham a retenção da submissão.
 Conserva somente o tombstone técnico da captura, incluindo hashes, para recusar replay tardio de
-uma criação já expirada. A retenção da submissão concluída conserva suas regras anteriores.
+uma criação já expirada. Antes de apagar a submissão concluída (com ou sem PDF), a retenção desassocia a captura,
+apaga conteúdo/capacidade e entregas e preserva o tombstone técnico, na mesma transação.
+Assim o CASCADE da FK não apaga a barreira de replay. A retenção da submissão conserva seus prazos anteriores.
 Cópias entregues ao receptor seguem a política dele.
 
 Este recurso não configura CRM, envia mensagens ou publica formulários. Deploy e habilitação de

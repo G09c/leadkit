@@ -90,7 +90,8 @@ def enqueue(session, row, spec, *, completed=False, revoked=False):
             "contact": {
                 "field": field,
                 "value": value,
-                "authorized": value == spec.partial_capture["contact_permission_value"],
+                "authorized": not revoked
+                and value == spec.partial_capture["contact_permission_value"],
             },
         },
         "tracking": deepcopy(row.tracking),
