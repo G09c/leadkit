@@ -13872,6 +13872,14 @@ SIGNATURES["0020_draft_test_commands"] = {
 # DDL aditivo 0021, conferido em PostgreSQL 16 isolado.
 SIGNATURES["0021_partial_capture"] = {
     **SIGNATURES["0020_draft_test_commands"],
+    "column:public.partial_captures.last_activity_at": [
+        "timestamp with time zone",
+        "true",
+        "",
+        "",
+        "",
+        "",
+    ],
     "column:public.partial_captures.answers": ["jsonb", "true", "", "", "", ""],
     "column:public.partial_captures.consent": ["jsonb", "true", "", "", "", ""],
     "column:public.partial_captures.create_key_hash": [

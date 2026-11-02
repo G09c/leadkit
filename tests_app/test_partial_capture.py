@@ -373,6 +373,19 @@ def test_saved_steps_keep_revision_and_historical_version(deps):
         assert advanced.status_code == 201, advanced.text
         assert advanced.json()["revision"] == 2
         assert advanced.json()["version_number"] == 1
+        assert advanced.json()["last_activity_at"] >= saved["last_activity_at"]
+        first_names = {q["name"] for q in document["steps"][0]["questions"]}
+        back = dict(
+            update,
+            request_id=str(uuid.uuid4()),
+            step=0,
+            revision=2,
+            answers={k: v for k, v in update["answers"].items() if k in first_names},
+        )
+        back_saved = client.post("/v1/forms/capture-test/partials", json=back)
+        assert back_saved.status_code == 201, back_saved.text
+        assert back_saved.json()["answers"] == advanced.json()["answers"]
+
         update["request_id"] = str(uuid.uuid4())
         assert client.post("/v1/forms/capture-test/partials", json=update).status_code == 409
         final = client.post(

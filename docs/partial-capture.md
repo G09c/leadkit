@@ -20,8 +20,9 @@ incondicional dessa etapa; o valor autorizado precisa ser uma opção existente.
 não autoriza contato. Quem recusa contato continua respondendo e pode concluir normalmente.
 
 O prazo fica entre 1 e 168 horas, limitado pela retenção do formulário no momento da criação.
-Salvar outra etapa não renova o prazo. A participante vê confirmação somente após commit e pode
-copiar o link de retomada. O fragmento `#resume=` leva apenas capacidade aleatória; o navegador o
+Salvar outra etapa atualiza `last_activity_at`, mas não renova o prazo. A participante vê confirmação somente após commit e pode
+copiar o link de retomada. Quando o armazenamento local está disponível, o navegador guarda
+a capacidade temporária para retomar no mesmo aparelho; nenhuma resposta pessoal entra nessa chave. O fragmento `#resume=` leva apenas capacidade aleatória; o navegador o
 remove antes de enviar a capacidade no corpo de um POST. O link dá acesso às respostas salvas,
 por isso deve ser compartilhado somente pela própria participante ou pelo receptor autorizado.
 Sem JavaScript, o formulário continua permitindo envio completo; salvamento por etapas exige JS.

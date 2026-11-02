@@ -33,6 +33,7 @@ def upgrade():
             unique=True,
         ),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("last_activity_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
     )
     op.create_index("ix_partial_captures_form_slug", "partial_captures", ["form_slug"])

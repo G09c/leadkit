@@ -1032,6 +1032,7 @@ class PartialCapture(Base):
         sa.ForeignKey("submissions.id", ondelete="CASCADE"), unique=True
     )
     created_at: Mapped[datetime] = _created_at()
+    last_activity_at: Mapped[datetime] = _created_at()
     expires_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), index=True)
 
 

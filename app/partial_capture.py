@@ -63,6 +63,7 @@ def snapshot(row, *, token=None):
         "revision": row.revision,
         "step": row.step,
         "version_number": row.form_version_number,
+        "last_activity_at": row.last_activity_at.isoformat(),
         "expires_at": row.expires_at.isoformat(),
         "answers": row.answers,
         "consent": row.consent,
@@ -100,8 +101,10 @@ def save(session, deps, slug, body, *, now=None):
     _check_marketing_channels(spec, body.consent)
     if body.consent.text_version != spec.consent_text_version:
         raise PartialConflict()
-    names = {q.name for step in spec.screen.steps[: body.step + 1] for q in step.questions}
-    hidden = set(spec.conditions.evaluate(body.answers).hidden) if spec.conditions else set()
+    saved_step = max(body.step, row.step if row else 0)
+    names = {q.name for step in spec.screen.steps[: saved_step + 1] for q in step.questions}
+    candidate = {**(row.answers if row else {}), **body.answers}
+    hidden = set(spec.conditions.evaluate(candidate).hidden) if spec.conditions else set()
     fields = {
         name: (field.annotation, deepcopy(field))
         for name, field in spec.answers_model.model_fields.items()
@@ -109,7 +112,7 @@ def save(session, deps, slug, body, *, now=None):
     }
     model = create_model("PartialAnswers", __config__=ConfigDict(extra="forbid"), **fields)
     answers = model.model_validate(
-        {k: v for k, v in body.answers.items() if k not in hidden}
+        {k: v for k, v in candidate.items() if k not in hidden}
     ).model_dump(mode="json")
     fingerprint = digest(
         json.dumps(
@@ -123,8 +126,9 @@ def save(session, deps, slug, body, *, now=None):
             return snapshot(row, token=cipher.open(row.sealed_token)), True
         if body.revision != row.revision:
             raise PartialConflict()
+        row.last_activity_at = now
         row.answers = answers
-        row.step = body.step
+        row.step = max(row.step, body.step)
         row.revision += 1
         row.last_request_id = body.request_id
         row.last_digest = fingerprint
@@ -149,6 +153,8 @@ def save(session, deps, slug, body, *, now=None):
             revision=1,
             last_request_id=body.request_id,
             last_digest=fingerprint,
+            created_at=now,
+            last_activity_at=now,
             expires_at=now + timedelta(hours=hours),
         )
         session.add(row)
@@ -183,6 +189,7 @@ def accept_final(session, spec, body, *, forms, **options):
         forms=forms,
         **options,
     )
+    row.last_activity_at = options.get("now") or utcnow()
     row.submission_id = (
         accepted.submission.id
         if isinstance(accepted, CaptureAccepted)

@@ -26,14 +26,18 @@
   // Página do pedido: o envio deu certo, o rascunho deste formulário sai do aparelho.
   const sent = document.body.dataset.clearDraft;
   if (sent && store) {
+    store.removeItem(`partial:${sent}`);
     Object.keys(store)
       .filter((key) => key.startsWith(`${PREFIX}${sent}:`))
       .forEach((key) => store.removeItem(key));
   }
 
   // O fragmento não vai ao servidor nem ao log de acesso. Remova-o antes de qualquer requisição.
-  const resumeToken = new URLSearchParams(window.location.hash.slice(1)).get("resume");
+  const partialSlug = /^\/p\/([^/]+)$/.exec(window.location.pathname)?.[1];
+  const resumeToken = new URLSearchParams(window.location.hash.slice(1)).get("resume")
+    || (partialSlug && store && !form?.elements.namedItem("_partial_token")?.value ? store.getItem(`partial:${partialSlug}`) : null);
   if (resumeToken && !preview && /^\/p\/[^/]+$/.test(window.location.pathname)) {
+    if (store && partialSlug) store.removeItem(`partial:${partialSlug}`);
     history.replaceState(null, "", window.location.pathname);
     const exchange = document.createElement("form");
     exchange.method = "post";
@@ -224,6 +228,15 @@
   let savingPartial = false;
   let pendingSave = null;
   let partialRevision = Number(form.dataset.partialRevision) || 0;
+  function rememberPartial(token) {
+    const slug = form.action.split("/").filter(Boolean).pop();
+    try { if (store) store.setItem(`partial:${slug}`, token); } catch (error) { /* o link continua disponível na tela */ }
+    const link = form.querySelector("[data-resume-link]");
+    link.href = form.action.replace(/\/$/, "") + "#resume=" + encodeURIComponent(token);
+    form.querySelector("[data-resume-link-wrap]").hidden = false;
+  }
+  const initialPartial = form.elements.namedItem("_partial_token");
+  if (initialPartial?.value) rememberPartial(initialPartial.value);
 
   async function savePartial() {
     if (!form.dataset.partialUrl || preview) return true;
@@ -251,9 +264,7 @@
       tokenField.value = saved.token;
       partialRevision = saved.revision;
       pendingSave = null;
-      const link = form.querySelector("[data-resume-link]");
-      link.href = form.action.replace(/\/$/, "") + "#resume=" + encodeURIComponent(saved.token);
-      form.querySelector("[data-resume-link-wrap]").hidden = false;
+      rememberPartial(saved.token);
       notice.textContent = "Respostas salvas. Guarde o link para retomar em outro aparelho.";
       if (submittedFingerprint !== fingerprint) return savePartial();
       return true;
