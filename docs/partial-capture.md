@@ -36,7 +36,9 @@ A resposta 201 contém `id`, `token`, `revision`, `step`, `version_number`, `exp
 consentimento e origem. Replay exato da última operação devolve 200 sem repetir efeitos.
 Outra operação sobre revisão antiga recebe 409; não sobrescreve as respostas silenciosamente.
 Voltar uma etapa conserva respostas posteriores ainda válidas; condições que ocultem uma pergunta
-removem sua resposta. Cada salvamento registra a declaração atual de consentimento, inclusive
+removem sua resposta. Nas etapas alcançadas, perguntas condicionais visíveis continuam obrigatórias
+e opções ocultadas por condição são recusadas, pelas mesmas regras do envio completo. Etapas
+ainda não alcançadas não são exigidas. Cada salvamento registra a declaração atual de consentimento, inclusive
 retirada de marketing por e-mail ou WhatsApp, também refletida na retomada HTML.
 
 Mudar identidade, autorização de contato ou declaração de consentimento cria uma captura sucessora

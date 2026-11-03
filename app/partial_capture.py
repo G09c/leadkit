@@ -108,10 +108,17 @@ def save(session, deps, slug, body, *, now=None):
         for name, field in spec.answers_model.model_fields.items()
         if name in names and name not in hidden
     }
-    model = create_model("PartialAnswers", __config__=ConfigDict(extra="forbid"), **fields)
-    answers = model.model_validate(
-        {k: v for k, v in candidate.items() if k not in hidden}
-    ).model_dump(mode="json")
+    from app.forms.definition.questions import conditioned_answers
+
+    model = create_model(
+        "PartialAnswers", __config__=ConfigDict(extra="forbid", str_strip_whitespace=True), **fields
+    )
+    prepared = (
+        conditioned_answers(spec.conditions, candidate, names=names)
+        if spec.conditions
+        else candidate
+    )
+    answers = model.model_validate(prepared).model_dump(mode="json")
     fingerprint = digest(
         json.dumps(
             body.model_dump(mode="json", exclude={"token"}), sort_keys=True, separators=(",", ":")

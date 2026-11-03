@@ -260,39 +260,39 @@ def _conditional_options(question: QuestionDoc) -> bool:
     return any(option.show_when is not None for option in question.options or ())
 
 
-def _given(conditions: Conditions, steps: list[StepDoc]) -> Callable[[Any, Any], Any]:
-    """O que o modelo faz com as respostas antes de validá-las, de acordo com as condições: tira as
-    das perguntas escondidas, pede em branco a obrigatória que apareceu e não veio, e troca a
-    opção escolhida que a condição escondeu por `_Unavailable`. A visibilidade vem do avaliador,
-    uma vez só por validação."""
-    questions = {question.name: question for question in questions_of(steps)}
-    conditional_required = conditions.required_when_shown
-    conditional_options = {
-        name: {option.value for option in question.options or ()}
-        for name, question in questions.items()
-        if _conditional_options(question)
-    }
+def conditioned_answers(conditions: Conditions, data: Any, *, names: set[str] | None = None) -> Any:
+    """Aplica as mesmas condições no envio completo e nas etapas já alcançadas da captura."""
+    if not isinstance(data, Mapping):
+        return data
+    seen = conditions.evaluate(data)
+    active = set(seen.visible) if names is None else set(seen.visible) & names
+    shaped = {key: value for key, value in data.items() if key not in seen.hidden}
+    for name in conditions.required_when_shown & active:
+        if shaped.get(name) is None or _blank(shaped[name]):
+            shaped[name] = ""
+    for question in conditions.page_data:
+        name = question["name"]
+        options = question.get("options", ())
+        if name not in active or not any("show_when" in option for option in options):
+            continue
+        known = {option["value"] for option in options}
 
-    def refuse(item: Any, name: str, available: tuple[str, ...]) -> Any:
-        if isinstance(item, str) and item in conditional_options[name] and item not in available:
-            return _Unavailable()
-        return item
+        def refuse(item: Any, known=known, available=seen.options[name]) -> Any:
+            if isinstance(item, str) and item in known and item not in available:
+                return _Unavailable()
+            return item
 
-    def given(cls: Any, data: Any) -> Any:  # `cls`: o pydantic o trata como método de classe
-        if not isinstance(data, Mapping):
-            return data  # o modelo diz que não é um objeto
-        seen = conditions.evaluate(data)
-        shaped = {key: value for key, value in data.items() if key not in seen.hidden}
-        for name in conditional_required.intersection(seen.visible):
-            if shaped.get(name) is None or _blank(shaped[name]):
-                shaped[name] = ""
-        for name in conditional_options.keys() & set(seen.visible):
-            chosen = shaped.get(name)
-            if isinstance(chosen, list):
-                shaped[name] = [refuse(item, name, seen.options[name]) for item in chosen]
-            elif chosen is not None:
-                shaped[name] = refuse(chosen, name, seen.options[name])
-        return shaped
+        chosen = shaped.get(name)
+        if isinstance(chosen, list):
+            shaped[name] = [refuse(item) for item in chosen]
+        elif chosen is not None:
+            shaped[name] = refuse(chosen)
+    return shaped
+
+
+def _given(conditions: Conditions) -> Callable[[Any, Any], Any]:
+    def given(cls: Any, data: Any) -> Any:
+        return conditioned_answers(conditions, data)
 
     return given
 
@@ -304,7 +304,7 @@ def answers_model(steps: list[StepDoc], conditions: Conditions | None = None) ->
     fields = {question.name: _field(question) for question in questions_of(steps)}
     checks: dict[str, Any] = {}
     if conditions is not None and conditions.present:
-        checks["_conditions"] = model_validator(mode="before")(_given(conditions, steps))
+        checks["_conditions"] = model_validator(mode="before")(_given(conditions))
     return create_model(
         "Answers",
         __config__=ConfigDict(extra="forbid", str_strip_whitespace=True),

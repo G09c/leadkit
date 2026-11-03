@@ -325,3 +325,130 @@ def test_html_completion_without_javascript_emits_once(deps, one_step):
     assert calls[0]["submission"]["id"]
     assert "resume_url" not in calls[0]
     assert calls[0]["form"]["version_number"] == 1
+
+
+def test_conditional_required_partial_matches_full_validation(deps):
+    doc = partial_document()
+    doc["steps"][0]["questions"].append(
+        {
+            "name": "detail",
+            "kind": "text",
+            "label": "Detalhe",
+            "required": True,
+            "min_length": 2,
+            "max_length": 100,
+            "show_when": {
+                "mode": "all",
+                "rules": [{"field": "contact_permission", "operator": "equals", "value": "yes"}],
+            },
+        }
+    )
+    doc["examples"]["answers"]["detail"] = "Exemplo"
+    import_definition(deps, json.dumps(doc), actor="review")
+    fields = {q["name"] for q in doc["steps"][0]["questions"]}
+    answers = {k: v for k, v in doc["examples"]["answers"].items() if k in fields and k != "detail"}
+    consent = {"privacy": True, "text_version": doc["consent"]["version"]}
+    with TestClient(create_app()) as c:
+        full = c.post(
+            "/v1/forms/capture-test/submissions",
+            json={
+                "answers": {k: v for k, v in doc["examples"]["answers"].items() if k != "detail"},
+                "consent": consent,
+            },
+        )
+        assert full.status_code == 422
+        partial = c.post(
+            "/v1/forms/capture-test/partials",
+            json={
+                "request_id": str(uuid.uuid4()),
+                "step": 0,
+                "answers": answers,
+                "consent": consent,
+            },
+        )
+        assert partial.status_code == 422, partial.text
+
+
+def test_partial_conditional_scope_does_not_require_future_steps(deps):
+    doc = partial_document()
+    condition = {
+        "mode": "all",
+        "rules": [{"field": "contact_permission", "operator": "equals", "value": "yes"}],
+    }
+    doc["steps"][-1]["questions"].append(
+        {
+            "name": "future_detail",
+            "kind": "text",
+            "max_length": 100,
+            "label": "Detalhe futuro",
+            "required": True,
+            "min_length": 2,
+            "show_when": condition,
+        }
+    )
+    doc["examples"]["answers"]["future_detail"] = "Exemplo"
+    import_definition(deps, json.dumps(doc), actor="review")
+    fields = {q["name"] for q in doc["steps"][0]["questions"]}
+    body = {
+        "request_id": str(uuid.uuid4()),
+        "step": 0,
+        "answers": {k: v for k, v in doc["examples"]["answers"].items() if k in fields},
+        "consent": {"privacy": True, "text_version": doc["consent"]["version"]},
+    }
+    with TestClient(create_app()) as c:
+        first = c.post("/v1/forms/capture-test/partials", json=body)
+        assert first.status_code == 201
+        body.update(
+            request_id=str(uuid.uuid4()),
+            token=first.json()["token"],
+            revision=1,
+            step=len(doc["steps"]) - 1,
+            answers=doc["examples"]["answers"],
+        )
+        advanced = c.post("/v1/forms/capture-test/partials", json=body)
+        assert advanced.status_code == 201
+        body.update(
+            request_id=str(uuid.uuid4()),
+            revision=2,
+            step=0,
+            answers={k: v for k, v in body["answers"].items() if k in fields},
+        )
+        body["answers"]["contact_permission"] = "no"
+        hidden = c.post("/v1/forms/capture-test/partials", json=body)
+        assert hidden.status_code == 201
+        assert "future_detail" not in hidden.json()["answers"]
+
+
+def test_partial_rejects_conditionally_unavailable_option(deps):
+    doc = partial_document()
+    condition = {
+        "mode": "all",
+        "rules": [{"field": "contact_permission", "operator": "equals", "value": "yes"}],
+    }
+    doc["steps"][0]["questions"].append(
+        {
+            "name": "channel",
+            "kind": "choice",
+            "label": "Canal",
+            "options": [
+                {"value": "base", "label": "Padrão"},
+                {"value": "gated", "label": "Condicionado", "show_when": condition},
+            ],
+        }
+    )
+    doc["examples"]["answers"]["channel"] = "base"
+    import_definition(deps, json.dumps(doc), actor="review")
+    fields = {q["name"] for q in doc["steps"][0]["questions"]}
+    answers = {k: v for k, v in doc["examples"]["answers"].items() if k in fields}
+    answers.update(contact_permission="no", channel="gated")
+    with TestClient(create_app()) as c:
+        response = c.post(
+            "/v1/forms/capture-test/partials",
+            json={
+                "request_id": str(uuid.uuid4()),
+                "step": 0,
+                "answers": answers,
+                "consent": {"privacy": True, "text_version": doc["consent"]["version"]},
+            },
+        )
+        assert response.status_code == 422
