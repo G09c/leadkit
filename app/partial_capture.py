@@ -101,6 +101,7 @@ def save(session, deps, slug, body, *, now=None):
         raise PartialConflict()
     saved_step = max(body.step, row.step if row else 0)
     names = {q.name for step in spec.screen.steps[: saved_step + 1] for q in step.questions}
+    current_names = {q.name for step in spec.screen.steps[: body.step + 1] for q in step.questions}
     candidate = {**(row.answers if row else {}), **body.answers}
     hidden = set(spec.conditions.evaluate(candidate).hidden) if spec.conditions else set()
     fields = {
@@ -108,13 +109,18 @@ def save(session, deps, slug, body, *, now=None):
         for name, field in spec.answers_model.model_fields.items()
         if name in names and name not in hidden
     }
+    # Campos futuros já salvos continuam tipados, mas só voltam a ser obrigatórios ao visitá-los.
+    for name, (_, field) in fields.items():
+        if name not in current_names:
+            field.default = None
+
     from app.forms.definition.questions import conditioned_answers
 
     model = create_model(
         "PartialAnswers", __config__=ConfigDict(extra="forbid", str_strip_whitespace=True), **fields
     )
     prepared = (
-        conditioned_answers(spec.conditions, candidate, names=names)
+        conditioned_answers(spec.conditions, candidate, names=current_names)
         if spec.conditions
         else candidate
     )

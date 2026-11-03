@@ -452,3 +452,127 @@ def test_partial_rejects_conditionally_unavailable_option(deps):
             },
         )
         assert response.status_code == 422
+
+
+def test_return_to_first_step_can_reveal_unanswered_later_question(deps):
+    from copy import deepcopy
+
+    doc = partial_document()
+    doc["steps"][1]["questions"].append(
+        {
+            "name": "detail",
+            "kind": "text",
+            "label": "Detalhe",
+            "required": True,
+            "min_length": 2,
+            "max_length": 100,
+            "show_when": {
+                "mode": "all",
+                "rules": [{"field": "contact_permission", "operator": "equals", "value": "yes"}],
+            },
+        }
+    )
+    doc["examples"]["answers"]["detail"] = "Exemplo"
+    import_definition(deps, json.dumps(doc), actor="review")
+    fields = {q["name"] for q in doc["steps"][0]["questions"]}
+    first_answers = {k: v for k, v in doc["examples"]["answers"].items() if k in fields}
+    first_answers["contact_permission"] = "no"
+    body = {
+        "request_id": str(uuid.uuid4()),
+        "step": 0,
+        "answers": first_answers,
+        "consent": {"privacy": True, "text_version": doc["consent"]["version"]},
+    }
+    with TestClient(create_app()) as c:
+        first = c.post("/v1/forms/capture-test/partials", json=body).json()
+        all_answers = {k: v for k, v in doc["examples"]["answers"].items() if k != "detail"}
+        all_answers["contact_permission"] = "no"
+        body.update(
+            request_id=str(uuid.uuid4()),
+            token=first["token"],
+            revision=first["revision"],
+            step=len(doc["steps"]) - 1,
+            answers=all_answers,
+        )
+        advanced = c.post("/v1/forms/capture-test/partials", json=body)
+        assert advanced.status_code == 201, advanced.text
+        answers = deepcopy(first_answers)
+        answers["contact_permission"] = "yes"
+        body.update(
+            request_id=str(uuid.uuid4()),
+            revision=advanced.json()["revision"],
+            step=0,
+            answers=answers,
+        )
+        back = c.post("/v1/forms/capture-test/partials", json=body)
+        assert back.status_code == 201, back.text
+        body.update(
+            request_id=str(uuid.uuid4()),
+            token=back.json()["token"],
+            revision=back.json()["revision"],
+            step=len(doc["steps"]) - 1,
+            answers={**all_answers, "contact_permission": "yes"},
+        )
+        assert c.post("/v1/forms/capture-test/partials", json=body).status_code == 422
+        body["answers"]["detail"] = "Agora respondida"
+        assert c.post("/v1/forms/capture-test/partials", json=body).status_code == 201
+
+
+def test_back_navigation_removes_future_option_that_is_no_longer_available(deps):
+    doc = partial_document()
+    condition = {
+        "mode": "all",
+        "rules": [{"field": "contact_permission", "operator": "equals", "value": "yes"}],
+    }
+    doc["steps"][-1]["questions"].append(
+        {
+            "name": "future_choice",
+            "kind": "choice",
+            "label": "Escolha futura",
+            "options": [
+                {"value": "base", "label": "Padrão"},
+                {"value": "gated", "label": "Condicionada", "show_when": condition},
+            ],
+        }
+    )
+    doc["examples"]["answers"]["future_choice"] = "gated"
+    import_definition(deps, json.dumps(doc), actor="review")
+    fields = {q["name"] for q in doc["steps"][0]["questions"]}
+    first_answers = {k: v for k, v in doc["examples"]["answers"].items() if k in fields}
+    body = {
+        "request_id": str(uuid.uuid4()),
+        "step": 0,
+        "answers": first_answers,
+        "consent": {"privacy": True, "text_version": doc["consent"]["version"]},
+    }
+    with TestClient(create_app()) as c:
+        first = c.post("/v1/forms/capture-test/partials", json=body).json()
+        body.update(
+            request_id=str(uuid.uuid4()),
+            token=first["token"],
+            revision=1,
+            step=len(doc["steps"]) - 1,
+            answers=doc["examples"]["answers"],
+        )
+        assert c.post("/v1/forms/capture-test/partials", json=body).status_code == 201
+        body.update(
+            request_id=str(uuid.uuid4()),
+            revision=2,
+            step=0,
+            answers={**first_answers, "contact_permission": "no"},
+        )
+        back = c.post("/v1/forms/capture-test/partials", json=body)
+        assert back.status_code == 201
+        assert back.json()["answers"]["future_choice"] is None
+        body.update(
+            request_id=str(uuid.uuid4()),
+            token=back.json()["token"],
+            revision=back.json()["revision"],
+            step=len(doc["steps"]) - 1,
+            answers={
+                **doc["examples"]["answers"],
+                "contact_permission": "no",
+                "future_choice": "base",
+            },
+        )
+        assert c.post("/v1/forms/capture-test/partials", json=body).status_code == 201

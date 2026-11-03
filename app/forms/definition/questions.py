@@ -265,9 +265,10 @@ def conditioned_answers(conditions: Conditions, data: Any, *, names: set[str] | 
     if not isinstance(data, Mapping):
         return data
     seen = conditions.evaluate(data)
-    active = set(seen.visible) if names is None else set(seen.visible) & names
+    active = set(seen.visible)
+    required = active if names is None else active & names
     shaped = {key: value for key, value in data.items() if key not in seen.hidden}
-    for name in conditions.required_when_shown & active:
+    for name in conditions.required_when_shown & required:
         if shaped.get(name) is None or _blank(shaped[name]):
             shaped[name] = ""
     for question in conditions.page_data:
@@ -283,6 +284,17 @@ def conditioned_answers(conditions: Conditions, data: Any, *, names: set[str] | 
             return item
 
         chosen = shaped.get(name)
+        if names is not None and name not in names:
+            # Uma edição anterior pode invalidar a opção salva; a participante a preencherá depois.
+            if isinstance(chosen, list):
+                valid = [item for item in chosen if item in seen.options[name]]
+                if valid:
+                    shaped[name] = valid
+                else:
+                    shaped.pop(name, None)
+            elif chosen is not None and chosen not in seen.options[name]:
+                shaped.pop(name, None)
+            continue
         if isinstance(chosen, list):
             shaped[name] = [refuse(item) for item in chosen]
         elif chosen is not None:
