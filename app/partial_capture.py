@@ -11,7 +11,7 @@ from datetime import timedelta
 from typing import Any
 
 import sqlalchemy as sa
-from pydantic import BaseModel, ConfigDict, Field, create_model
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError, create_model
 
 from app.consent import ConsentIn, record, same_declaration
 from app.destinations import SecretCipher
@@ -99,32 +99,7 @@ def save(session, deps, slug, body, *, now=None):
     _check_marketing_channels(spec, body.consent)
     if body.consent.text_version != spec.consent_text_version:
         raise PartialConflict()
-    saved_step = max(body.step, row.step if row else 0)
-    names = {q.name for step in spec.screen.steps[: saved_step + 1] for q in step.questions}
-    current_names = {q.name for step in spec.screen.steps[: body.step + 1] for q in step.questions}
-    candidate = {**(row.answers if row else {}), **body.answers}
-    hidden = set(spec.conditions.evaluate(candidate).hidden) if spec.conditions else set()
-    fields = {
-        name: (field.annotation, deepcopy(field))
-        for name, field in spec.answers_model.model_fields.items()
-        if name in names and name not in hidden
-    }
-    # Campos futuros já salvos continuam tipados, mas só voltam a ser obrigatórios ao visitá-los.
-    for name, (_, field) in fields.items():
-        if name not in current_names:
-            field.default = None
-
-    from app.forms.definition.questions import conditioned_answers
-
-    model = create_model(
-        "PartialAnswers", __config__=ConfigDict(extra="forbid", str_strip_whitespace=True), **fields
-    )
-    prepared = (
-        conditioned_answers(spec.conditions, candidate, names=current_names)
-        if spec.conditions
-        else candidate
-    )
-    answers = model.model_validate(prepared).model_dump(mode="json")
+    answers = _validate_answers(spec, body, row)
     fingerprint = digest(
         json.dumps(
             body.model_dump(mode="json", exclude={"token"}), sort_keys=True, separators=(",", ":")
@@ -185,6 +160,45 @@ def save(session, deps, slug, body, *, now=None):
 
     enqueue(session, row, spec)
     return snapshot(row, token=cipher.open(row.sealed_token)), False
+
+
+def _validate_answers(spec, body, row):
+    """Valida a etapa atual; dados futuros inválidos ficam sem resposta, sem bloquear o retorno."""
+    from app.forms.definition.questions import conditioned_answers
+
+    saved_step = max(body.step, row.step if row else 0)
+    saved_names = {q.name for step in spec.screen.steps[: saved_step + 1] for q in step.questions}
+    current_names = {q.name for step in spec.screen.steps[: body.step + 1] for q in step.questions}
+    candidate = {**(row.answers if row else {}), **body.answers}
+    hidden = set(spec.conditions.evaluate(candidate).hidden) if spec.conditions else set()
+    if set(body.answers) - saved_names - hidden:
+        raise ValueError("invalid_partial")
+    prepared = (
+        conditioned_answers(spec.conditions, candidate, names=current_names)
+        if spec.conditions
+        else candidate
+    )
+    fields = {
+        name: (field.annotation, deepcopy(field))
+        for name, field in spec.answers_model.model_fields.items()
+        if name in current_names and name not in hidden
+    }
+    config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    model = create_model("PartialAnswers", __config__=config, **fields)
+    answers = model.model_validate(
+        {name: value for name, value in prepared.items() if name in current_names}
+    ).model_dump(mode="json")
+    for name in (saved_names - current_names) - hidden:
+        value = prepared.get(name)
+        if value is not None:
+            field = spec.answers_model.model_fields[name]
+            adapter = TypeAdapter(field.rebuild_annotation(), config=config)
+            try:
+                value = adapter.dump_python(adapter.validate_python(value), mode="json")
+            except ValidationError:
+                value = None
+        answers[name] = value
+    return answers
 
 
 def _create_successor(session, row, spec, cipher, key, now):

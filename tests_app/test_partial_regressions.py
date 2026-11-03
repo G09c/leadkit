@@ -518,7 +518,8 @@ def test_return_to_first_step_can_reveal_unanswered_later_question(deps):
         assert c.post("/v1/forms/capture-test/partials", json=body).status_code == 201
 
 
-def test_back_navigation_removes_future_option_that_is_no_longer_available(deps):
+@pytest.mark.parametrize("kind, minimum", [("choice", 1), ("choices", 1), ("choices", 2)])
+def test_back_navigation_removes_future_option_that_is_no_longer_available(deps, kind, minimum):
     doc = partial_document()
     condition = {
         "mode": "all",
@@ -527,15 +528,18 @@ def test_back_navigation_removes_future_option_that_is_no_longer_available(deps)
     doc["steps"][-1]["questions"].append(
         {
             "name": "future_choice",
-            "kind": "choice",
+            "kind": kind,
             "label": "Escolha futura",
             "options": [
                 {"value": "base", "label": "Padrão"},
+                {"value": "extra", "label": "Outra"},
                 {"value": "gated", "label": "Condicionada", "show_when": condition},
             ],
         }
     )
-    doc["examples"]["answers"]["future_choice"] = "gated"
+    if kind == "choices":
+        doc["steps"][-1]["questions"][-1]["min_choices"] = minimum
+    doc["examples"]["answers"]["future_choice"] = "gated" if kind == "choice" else ["base", "gated"]
     import_definition(deps, json.dumps(doc), actor="review")
     fields = {q["name"] for q in doc["steps"][0]["questions"]}
     first_answers = {k: v for k, v in doc["examples"]["answers"].items() if k in fields}
@@ -563,16 +567,40 @@ def test_back_navigation_removes_future_option_that_is_no_longer_available(deps)
         )
         back = c.post("/v1/forms/capture-test/partials", json=body)
         assert back.status_code == 201
-        assert back.json()["answers"]["future_choice"] is None
+        assert back.json()["answers"]["future_choice"] == (
+            ["base"] if kind == "choices" and minimum == 1 else None
+        )
         body.update(
             request_id=str(uuid.uuid4()),
             token=back.json()["token"],
             revision=back.json()["revision"],
+        )
+        back = c.post("/v1/forms/capture-test/partials", json=body)
+        assert back.status_code == 201, back.text
+        middle_fields = {q["name"] for step in doc["steps"][:2] for q in step["questions"]}
+        body.update(
+            request_id=str(uuid.uuid4()),
+            token=back.json()["token"],
+            revision=back.json()["revision"],
+            step=1,
+            answers={k: v for k, v in doc["examples"]["answers"].items() if k in middle_fields},
+        )
+        body["answers"]["contact_permission"] = "no"
+        middle = c.post("/v1/forms/capture-test/partials", json=body)
+        assert middle.status_code == 201, middle.text
+        body.update(
+            request_id=str(uuid.uuid4()),
+            token=middle.json()["token"],
+            revision=middle.json()["revision"],
             step=len(doc["steps"]) - 1,
             answers={
                 **doc["examples"]["answers"],
                 "contact_permission": "no",
-                "future_choice": "base",
+                "future_choice": "base" if kind == "choice" else ["base", "extra"],
             },
         )
+        valid = body["answers"]["future_choice"]
+        body["answers"]["future_choice"] = doc["examples"]["answers"]["future_choice"]
+        assert c.post("/v1/forms/capture-test/partials", json=body).status_code == 422
+        body["answers"]["future_choice"] = valid
         assert c.post("/v1/forms/capture-test/partials", json=body).status_code == 201
