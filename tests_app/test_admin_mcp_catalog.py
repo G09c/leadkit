@@ -220,6 +220,7 @@ def test_every_lead_data_operation_is_either_flagged_or_withheld_without_the_opt
         "list_captures",
         "get_capture",
         "get_submission_journey",
+        "get_submission_commercial_context",
         "list_submission_journey_events",
     }
 

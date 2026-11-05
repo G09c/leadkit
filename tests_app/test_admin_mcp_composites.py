@@ -140,9 +140,9 @@ def test_a_total_key_gets_the_five_composites_beside_the_generated_tools(tmp_pat
     world = World(tmp_path)
 
     assert set(world.composites) == set(CALLS)
-    assert len(world.tools) == 85 and set(CALLS).isdisjoint(world.tools)
+    assert len(world.tools) == 86 and set(CALLS).isdisjoint(world.tools)
     assert "render_job_participant_preview" not in world.tools
-    assert len(world.tools) + len(world.composites) == 90
+    assert len(world.tools) + len(world.composites) == 91
     world.close()
 
 
@@ -161,7 +161,7 @@ def test_the_lead_data_option_changes_no_composite_but_adds_the_lead_pdf_beside_
     on = World(tmp_path, lead_data=True)
     reader = World(folder(tmp_path, "leitura"), "leitura", lead_data=True)
 
-    assert set(on.composites) == set(CALLS) and len(on.tools) + len(on.composites) == 93
+    assert set(on.composites) == set(CALLS) and len(on.tools) + len(on.composites) == 94
     assert set(reader.composites) == READS  # a opção não faz nada para a chave `leitura`
     personal = {"download_job_pdf", "get_job_plan_projection", "render_job_participant_preview"}
     assert personal <= set(on.tools)
@@ -2434,13 +2434,13 @@ def test_the_server_lists_the_composites_beside_the_generated_tools(tmp_path: Pa
     read_only = protocol(reader, lambda session: session.list_tools()).tools
 
     names = {tool.name for tool in everything}
-    assert len(everything) == 90 and set(CALLS) <= names
+    assert len(everything) == 91 and set(CALLS) <= names
     assert names - set(CALLS) == operation_ids(DOCUMENT) - {
         "download_job_pdf",
         "get_job_plan_projection",
         "render_job_participant_preview",
     }  # as geradas seguem lá
-    assert len(read_only) == 42 and {t.name for t in read_only} >= READS
+    assert len(read_only) == 43 and {t.name for t in read_only} >= READS
     assert not (
         {"edit_form_draft", "publish_form_with_review", "connect_baserow_integration"}
         & {t.name for t in read_only}

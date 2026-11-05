@@ -104,6 +104,23 @@ def test_context_validates_identity_and_auth_before_sensitive_reads(deps):
     assert client.get(context_url(job.submission_id), params={"form": "demo"}).status_code == 401
 
 
+def test_invalid_job_attempt_returns_safe_state_conflict(deps):
+    from test_intake import submit
+
+    from app.models import Job
+
+    job = submit(deps, tracking={"utm_source": "private-attempt-marker"}).job
+    with deps.sessions.begin() as session:
+        session.get_one(Job, job.id).attempt = 0
+
+    response = api_client(deps).get(context_url(job.submission_id), params={"form": "demo"})
+
+    assert response.status_code == 409, response.text
+    assert response.json()["code"] == "state_conflict"
+    for private_value in ("private-attempt-marker", str(job.id), job.public_id):
+        assert private_value not in response.text
+
+
 def test_missing_tracking_is_not_invented(deps):
     submission_id = stored_capture(deps)
     response = api_client(deps).get(

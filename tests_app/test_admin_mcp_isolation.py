@@ -261,7 +261,7 @@ def test_the_program_speaks_mcp_over_stdio_against_a_real_http_api(local_api: Lo
         "/admin/api/v1/me",
         "/admin/api/v1/forms?limit=1",
     ]
-    assert "85 ferramentas para a chave de papel total, mais 5 compostas" in stderr
+    assert "86 ferramentas para a chave de papel total, mais 5 compostas" in stderr
     assert local_api.key not in stderr and local_api.key not in listed.model_dump_json()
 
 
