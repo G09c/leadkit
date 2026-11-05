@@ -150,7 +150,7 @@ def test_a_leitura_key_gets_only_the_two_composites_that_only_read(tmp_path: Pat
     reader = World(tmp_path, "leitura")
 
     assert set(reader.composites) == READS
-    assert len(reader.tools) == 40 and len(reader.tools) + len(reader.composites) == 42
+    assert len(reader.tools) == 41 and len(reader.tools) + len(reader.composites) == 43
     assert all(reader.tools[call].read_only for c in reader.composites.values() for call in c.calls)
     reader.close()
 

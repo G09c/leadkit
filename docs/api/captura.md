@@ -17,6 +17,8 @@ e revisão originais. Uma configuração alterada exige nova decisão para os pr
 redireciona intenções anteriores. Não use reprocessamento do PDF para repetir respostas.
 
 O contrato técnico e a prova de recebimento estão em [Integrações](integracoes.md).
+Para enriquecer um evento pelo UUID da submissão, com ou sem PDF, consulte
+[Contexto exato de uma submissão](submissoes.md).
 
 Ao criar um formulário, escolha **Somente salvar respostas**. A finalidade fica em `generation`
 na versão publicada: `none` captura; `pdf` ou ausência conserva a geração de plano e PDF.

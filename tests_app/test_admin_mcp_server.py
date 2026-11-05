@@ -124,7 +124,7 @@ def test_a_leitura_key_gets_only_the_leitura_tools(tmp_path: Path) -> None:
 
     listed = session_run(reader, lambda session: session.list_tools())
 
-    assert len(listed.tools) == 40
+    assert len(listed.tools) == 41
     assert all(tool.annotations.readOnlyHint for tool in listed.tools)
     assert {"publish_form_draft", "upload_asset", "download_job_pdf"}.isdisjoint(
         tool.name for tool in listed.tools

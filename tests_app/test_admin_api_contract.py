@@ -162,6 +162,39 @@ _JOURNEY_EVENT_STATE = (
     "meeting_event_id",
 )
 LEAD_STATE: dict[str, frozenset[str]] = {
+    "get_submission_commercial_context": frozenset(
+        {
+            "submission_id",
+            "form_slug",
+            "form_version",
+            "form_version_number",
+            "created_at",
+            "historical_version_available",
+            "generation",
+            "job",
+            "job.id",
+            "job.public_id",
+            "job.attempt",
+            "job.status",
+            "job.current_pdf",
+            "job.current_pdf.attempt",
+            "job.current_pdf.state",
+            "job.current_pdf.available",
+            "job.current_pdf.exists",
+            "job.current_pdf.valid",
+            "job.current_pdf.accessible",
+            "job.current_pdf.verified_at",
+            "job.release",
+            "job.release.form_version_number",
+            "job.release.policy",
+            "job.release.state",
+            "job.release.release_version",
+            "job.release.release_id",
+            "job.release.released_at",
+            "job.release.attempt",
+            "job.release.artifact_id",
+        }
+    ),
     "get_submission_journey": frozenset(
         {
             "submission_id",

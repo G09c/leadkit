@@ -58,6 +58,7 @@ from app.admin.api import (
     previews,
     publication,
     reference,
+    submissions,
 )
 from app.admin.api.limits import RateLimiter
 from app.admin.api.operations import count_operations, refuse_unguarded_routes, tags_of
@@ -135,6 +136,7 @@ ferramenta, em erro nem em log.
 ROUTERS = (
     api_keys.router,
     captures.router,
+    submissions.router,
     assets.router,
     audit.router,
     destinations.router,

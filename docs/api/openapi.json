@@ -12992,6 +12992,128 @@
         "title": "StepDoc",
         "type": "object"
       },
+      "SubmissionCommercialContext": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "form_slug": {
+            "title": "Form Slug",
+            "type": "string"
+          },
+          "form_version": {
+            "title": "Form Version",
+            "type": "string"
+          },
+          "form_version_number": {
+            "title": "Form Version Number",
+            "type": "integer"
+          },
+          "generation": {
+            "anyOf": [
+              {
+                "enum": [
+                  "pdf",
+                  "none"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Finalidade da versão respondida; nulo se a versão histórica está indisponível.",
+            "title": "Generation"
+          },
+          "historical_version_available": {
+            "title": "Historical Version Available",
+            "type": "boolean"
+          },
+          "job": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SubmissionJobContext"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Pedido ligado exclusivamente a esta submissão; nulo se ausente."
+          },
+          "lead_data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SubmissionTracking"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "submission_id": {
+            "format": "uuid",
+            "title": "Submission Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "submission_id",
+          "form_slug",
+          "form_version",
+          "form_version_number",
+          "created_at",
+          "historical_version_available",
+          "generation"
+        ],
+        "title": "SubmissionCommercialContext",
+        "type": "object"
+      },
+      "SubmissionJobContext": {
+        "properties": {
+          "attempt": {
+            "title": "Attempt",
+            "type": "integer"
+          },
+          "current_pdf": {
+            "$ref": "#/components/schemas/CurrentPdf",
+            "description": "Sem consulta ao storage: artefato ausente é missing, purgado é removed e registrado é unknown; available não é presumido."
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "public_id": {
+            "title": "Public Id",
+            "type": "string"
+          },
+          "release": {
+            "$ref": "#/components/schemas/ReleaseStatus"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "completed",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "public_id",
+          "attempt",
+          "status",
+          "current_pdf",
+          "release"
+        ],
+        "title": "SubmissionJobContext",
+        "type": "object"
+      },
       "SubmissionJourney": {
         "properties": {
           "external_declared": {
@@ -13061,6 +13183,20 @@
           "external_declared"
         ],
         "title": "SubmissionJourney",
+        "type": "object"
+      },
+      "SubmissionTracking": {
+        "properties": {
+          "tracking": {
+            "additionalProperties": true,
+            "title": "Tracking",
+            "type": "object"
+          }
+        },
+        "required": [
+          "tracking"
+        ],
+        "title": "SubmissionTracking",
         "type": "object"
       },
       "SummaryLeadData": {
@@ -13475,7 +13611,7 @@
   "info": {
     "description": "Tudo o que o painel admin faz, por chave de API com papel.\n\n**Autenticação.** Só `Authorization: Bearer <chave>`: a chave não vai na URL nem em cookie, e a\nsessão do painel não vale em nenhuma operação (ela só abre esta referência e o `openapi.json`). Cada\noperação diz o papel mínimo (`x-required-role`): `leitura` só consulta; `total` faz tudo o que o\nadmin logado faz. Toda escrita fica na auditoria em nome da chave (`chave:<nome>`).\n\n**Erros.** Um formato só, `{\"code\", \"detail\"}`, com `errors` (`field`, `message`, `line`) no `422`.\nA resposta nunca traz o valor recebido.\n\n**Operações marcadas.** As que apagam ou sobrescrevem algo difícil de desfazer (`x-destructive`) e\nas que mudam o que a lead vê, para onde os dados dela vão ou chamam um serviço de fora\n(`x-external-effect`) exigem `\"confirm\": true` em toda chamada (na query, em `DELETE`). Sem ele, a\nresposta é `422 confirmation_required` e nada acontece.\n\n**Limite de uso.** Cada chave tem um balde de chamadas por minuto; passou, `429 rate_limited` com\n`Retry-After`.\n\n**Fora das operações.** De qualquer endereço podem vir `404 not_found` (caminho sem operação),\n`405 method_not_allowed` (com `Allow`, os métodos do caminho), `413 payload_too_large`,\n`500 internal_error` e `503 unavailable` (banco fora do ar, com `Retry-After`).\n\n## MCP: usar a API pelo Claude\n\nO **MCP** (`python -m app.admin_mcp`) é um programa que roda no computador da operadora e deixa o\nClaude Desktop e o Claude Code chamarem esta API numa conversa. É um cliente HTTP desta API, só por\n`stdio` (não há MCP remoto), com a chave de quem o usa: nada novo sobe no servidor, e a autorização é\na da chave.\n\n**Configurar.** A tela [Configurar o MCP](/admin/mcp), no menu do painel, leva do zero ao servidor\nfuncionando: escolhe ou cria a chave (o segredo aparece uma vez), mostra a instalação, monta o comando\ndo Claude Code ou o bloco do Claude Desktop já com o endereço deste painel e confere a chave.\n\n**Ferramentas por papel.** Cada operação desta referência é uma ferramenta, com o `operationId` como\nnome, o `summary` e a `description` como texto, e os parâmetros e o corpo juntos num só objeto de\nentrada. Uma chave `leitura` recebe as operações de papel `leitura`; uma `total`, todas. Vêm além\ndelas algumas **compostas**, que juntam as chamadas de um fluxo (`attention_overview`,\n`diagnose_order`, `edit_form_draft`, `publish_form_with_review` e `connect_baserow_integration`) e só\nchamam ferramentas que a chave já tem. Para explorar, prefira `leitura`: são menos ferramentas.\n\n**Confirmações.** Uma operação marcada (`x-destructive` ou `x-external-effect`) não executa sozinha: o\nMCP mostra o efeito e o alvo e só chama a API com o sim da pessoa. O `confirm` que o modelo escrever\npor conta própria é ignorado.\n\n**Dado da lead.** Fica desligado: sem `GERADOR_MCP_LEAD_DATA=1`, o nome, o e-mail e as respostas das\nleads não chegam ao modelo, e o argumento `include_lead_data`, a busca `q` de `list_jobs` e a\n`download_job_pdf` não existem. Com a opção e uma chave `total` eles voltam, e o que o Claude ler vai\nao provedor do modelo.\n\n**Pastas.** PDFs e HTML vão para arquivo, em `GERADOR_MCP_DOWNLOAD_DIR` (ou numa pasta só do usuário\nno diretório temporário), e a ferramenta devolve o caminho, nunca os bytes. As imagens\n(`upload_asset` e `replace_asset`) só saem de `GERADOR_MCP_UPLOAD_DIR`, uma pasta que a pessoa\nescolhe e que não tem padrão. **A imagem enviada é servida sem login**: ponha nessa pasta só o que\npode ser público.\n\n**A chave.** Vai no ambiente do cliente (`GERADOR_API_URL` e `GERADOR_API_KEY`), nunca na linha de\ncomando do servidor, e só viaja no cabeçalho `Authorization: Bearer`: não aparece em retorno de\nferramenta, em erro nem em log.\n",
     "title": "Leadkit: API de admin",
-    "version": "1.88.0"
+    "version": "1.89.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -24169,6 +24305,150 @@
         "x-required-role": "leitura"
       }
     },
+    "/submissions/{submission_id}/commercial-context": {
+      "get": {
+        "description": "Consulta por UUID da submissão e formulário esperado, nunca por contato. O parâmetro form valida o contexto; não restringe a autoridade da chave administrativa. Tracking só é lido em lead_data com papel total e include_lead_data=true. Não gera, libera ou entrega PDF, nem chama provedores externos.",
+        "operationId": "get_submission_commercial_context",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "submission_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Submission Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "form",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Form",
+              "type": "string"
+            }
+          },
+          {
+            "description": "`true` traz o bloco `lead_data` (nome, e-mail e o resto do dado da lead). Só com chave `total`: com `leitura` é `403 forbidden_role`. Sem ele, o bloco vem nulo, mesmo para `total`.",
+            "in": "query",
+            "name": "include_lead_data",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "`true` traz o bloco `lead_data` (nome, e-mail e o resto do dado da lead). Só com chave `total`: com `leitura` é `403 forbidden_role`. Sem ele, o bloco vem nulo, mesmo para `total`.",
+              "title": "Include Lead Data",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmissionCommercialContext"
+                }
+              }
+            },
+            "description": "Metadados históricos, pedido atual ou ausência explícita, sem capacidade de download."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sem chave, chave desconhecida ou de segredo errado (`invalid_credentials`: a mesma resposta nos três casos), ou chave vencida (`key_expired`) ou revogada (`key_revoked`). Leva `WWW-Authenticate: Bearer`.",
+            "headers": {
+              "WWW-Authenticate": {
+                "description": "Sempre `Bearer`: o único esquema que a API aceita.",
+                "schema": {
+                  "examples": [
+                    "Bearer"
+                  ],
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A chave tem papel `leitura` e a chamada pediu `include_lead_data=true`, que é só do papel `total` (`forbidden_role`). Sem o parâmetro, a chave `leitura` lê o estado do pedido."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Submissão inexistente ou formulário divergente."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "state_conflict: vínculos ou tentativa incompatíveis; nenhum pedido é escolhido."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "O corpo ou a definição não valem (`validation_failed`; `errors` traz o caminho de cada campo) ou falta `confirm: true` numa operação marcada (`confirmation_required`; nada acontece)."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Limite de uso da chave ou bloqueio por chave errada (`rate_limited`), ou pausa entre os testes pagos do rascunho (`test_paused`). Leva `Retry-After`.",
+            "headers": {
+              "Retry-After": {
+                "description": "Quantos segundos esperar antes de tentar de novo.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Consultar contexto exato de submissão",
+        "tags": [
+          "Submissões"
+        ],
+        "x-lead-data": true,
+        "x-required-role": "leitura"
+      }
+    },
     "/submissions/{submission_id}/handoff": {
       "get": {
         "description": "Metadados operacionais; não recupera referência, endereço completo, contato ou respostas.",
@@ -24848,6 +25128,10 @@
     {
       "description": "Respostas confirmadas sem geração de plano ou PDF. Estado é de leitura; dados da participante exigem total e opt-in.",
       "name": "Capturas"
+    },
+    {
+      "description": "Contexto exato de respostas salvas, com ou sem geração de PDF.",
+      "name": "Submissões"
     },
     {
       "description": "As imagens que os templates do PDF e da prévia de um formulário pedem por `asset:<nome>`: a biblioteca geral (que todo formulário enxerga) e as de cada formulário. Ler é de `leitura`; enviar, trocar e remover são só de `total`. O envio e a troca são `multipart/form-data` com o arquivo (PNG, JPEG ou WebP, até 8 MB), que a API otimiza antes de guardar; a resposta traz o que a otimização fez (tamanho, tipo e dimensões antes e depois). Remover exige `\"confirm\": true`.",

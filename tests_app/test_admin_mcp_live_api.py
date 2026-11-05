@@ -70,7 +70,7 @@ def test_a_leitura_key_of_the_live_api_starts_with_the_read_tools(
 ) -> None:
     reader = Live(api_client("leitura"), tmp_path)
 
-    assert reader.role == "leitura" and len(reader.tools) == 40
+    assert reader.role == "leitura" and len(reader.tools) == 41
     assert reader.ok("list_forms")["items"]
     reader.close()
 

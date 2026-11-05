@@ -397,6 +397,7 @@ página delas e estão em ["Chaves de API"](#chaves-de-api).
 
 | `operation_id` | Operação da API | O que faz | Papel | Marcas | Status |
 | --- | --- | --- | --- | --- | --- |
+| `get_submission_commercial_context` | `GET /submissions/{submission_id}/commercial-context` | Contexto histórico por submissão e formulário esperado; sem capacidade PDF | leitura | lead | feita · tests_app/test_admin_submission_context.py::test_capture_context_has_explicit_absence_and_no_lead_data |
 | `get_current_api_key` | `GET /me` | Quem está chamando: nome da chave, papel e validade; o primeiro teste de uma chave nova | leitura | — | feita · tests_app/test_admin_api_keys_api.py::test_me_says_who_is_calling_without_the_secret |
 | `list_audit_log` | `GET /audit-log` | Lê a auditoria (autor, ação, alvo, detalhes), filtrada por alvo, autor ou ação | leitura | — | feita · tests_app/test_admin_api_audit.py::test_list_audit_log_answers_an_envelope_of_the_newest_entries_first |
 | `get_form_draft_test_command_context` | `GET /forms/{slug}/draft/test-command-context` | Emite identidade de teste e revisão sem persistir nem aprovar; o admin usa o mesmo contexto internamente | leitura | — | feita · tests_app/test_admin_api_draft_tests.py::test_idempotent_command_recovery_and_conflict_without_reconfirmation |
