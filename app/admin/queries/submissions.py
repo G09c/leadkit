@@ -69,6 +69,14 @@ def commercial_context(
         raise ContextConflict from None
     if job and (job.attempt < 1 or (spec and spec.generation == "none")):
         raise ContextConflict
+    tracking = None
+    if with_lead:
+        tracking = session.execute(
+            sa.select(Submission.tracking).where(Submission.id == row.id)
+        ).one_or_none()
+        # A retenção pode excluir uma captura entre os SELECTs em READ COMMITTED.
+        if tracking is None:
+            return None
     return {
         "submission_id": row.id,
         "form_slug": row.form_slug,
@@ -87,11 +95,5 @@ def commercial_context(
         }
         if job
         else None,
-        "lead_data": {
-            "tracking": session.scalar(
-                sa.select(Submission.tracking).where(Submission.id == row.id)
-            )
-        }
-        if with_lead
-        else None,
+        "lead_data": {"tracking": tracking[0]} if tracking is not None else None,
     }

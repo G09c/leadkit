@@ -35,7 +35,10 @@ URL assinada, chave de storage, documento ou capacidade de download sai nesta re
 A leitura não gera, libera, notifica nem chama provedores externos.
 
 `lead_data` vem nulo por padrão, mesmo para `total`. Somente `include_lead_data=true` com papel
-`total` retorna `lead_data.tracking`, exatamente como persistido na submissão; ausência é `{}`.
+`total` retorna `lead_data.tracking`, exatamente como persistido na submissão; tracking vazio
+persistido continua `{}`.
+Se a retenção apagar a submissão antes da leitura autorizada de tracking, a consulta retorna
+`404 not_found`; não transforma a exclusão em tracking vazio.
 Papel `leitura` com essa opção recebe `403 forbidden_role`. Respostas e identidade não fazem parte
 deste contrato mínimo. No MCP, a opção também depende de `GERADOR_MCP_LEAD_DATA=1`; sem ela o
 argumento não é exposto e o cliente impede sua inclusão. Considere que esse conteúdo chega ao
